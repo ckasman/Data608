@@ -58,7 +58,7 @@ submit_button_pres.onclick = function(){
             if (n['Name'] == document.querySelector("#presidentinput").value){
                 has_found = 1
                 pres_output.innerText = `Height: ${n['Height']}  Weight: ${n['Weight']}`
-                console.log('here', pres_input, n['Name']);
+                console.log('here', presidentinput, n['Name']);
             }
         }
     if (has_found == 0){
