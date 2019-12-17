@@ -1,0 +1,204 @@
+---
+title: "Migration Between Major Regions - 2000"
+output: html
+---
+
+For my final project, I will visualize migrant data between continents in 2000 to understand flows of people. I decided to utilize an interactive sankey network graph which shows the following techniques and best practices learned throughout the DATA 608 course:
+
+1.Data Ink Ratio
+2.Chart Junk
+3.Tool Tips
+4.Aesthetics and Techniques
+
+This type of visualization appeals to me since I currently work in HR People and Analytics and we have to understand the how people move throughout the organization between groups and locations. Looking at this type of information, people flows and movement, can be challenging to visualize but I feel that a Sankey graph, with other types of visualizations, can be quite effective.
+
+About Migration:
+"International migration has become a global phenomenon involving a wide range
+of sending, destination, and transit countries and a diverse group of migrants. The
+highly skilled worker from Australia working in Singapore, the refugee from
+Afghanistan in Iran, the woman from Nigeria trafficked to Italy, and the agricultural worker from Mexico working illegally in the United States are all examples
+of international migrants." - World Migration Report 2000
+
+
+```{r, echo=FALSE}
+library(dplyr)
+library(networkD3)
+library(knitr)
+
+
+
+DATA<- read.csv("https://raw.githubusercontent.com/ckasman/Data608/master/Data%20on%20the%20global%20flow%20of%20people_Version%20March2014.csv")
+
+#remove rows where region origin and region destination are the same
+DATA_Un<-subset(DATA, region_orig != region_dest)
+
+#Remove Duplicates using unique ID
+DATA_Un$ID<- paste(DATA_Un$region_orig, DATA_Un$region_dest)
+DATA_Un<- distinct(DATA_Un,ID, .keep_all= TRUE)
+
+DATA_Un<- DATA_Un[ ,c(1,3,11)]
+names(DATA_Un)[names(DATA_Un) == "regionflow_2000"] <- "counts"
+
+head(DATA_Un)
+```
+```{r}
+summary(DATA_Un)
+```
+
+
+```{r}
+#Get list of unique continents n =10
+Continents <- as.data.frame(unique(DATA_Un$region_orig))
+table(Continents)
+```
+
+
+
+  
+    
+```{r, echo=FALSE}
+#df_fil2 <- filter(df3, Time1!=Time2) # filtering to just those moving
+
+# Adding the different labels to distinguish the nodes at time 1 and time2
+DATA_Un$region_orig<- paste(DATA_Un$region_orig, " ", sep = "")
+DATA_Un$region_dest <- paste(DATA_Un$region_dest, "_", sep = "")
+
+
+### Getting the counts for each source-target pair
+#df4 <- df_fil2 %>%
+ #   group_by(Time1, Time2) %>%
+  #  dplyr::summarize(counts = n()) %>%
+   # ungroup() %>%
+    #arrange(desc(counts))
+
+# Setting up the nodes and links for the network
+name_vec <- c(unique(DATA_Un$region_orig), unique(DATA_Un$region_dest))
+
+nodes2 <- data.frame(name = name_vec, id = 0:(length(name_vec)-1)) #length of ids must equal number of unique locations
+
+links2 <- DATA_Un%>%
+    left_join(nodes2, by = c('region_orig' = 'name')) %>%
+    rename(origin_id = id) %>%
+    left_join(nodes2, by = c('region_dest' = 'name')) %>%
+    rename(dest_id = id)
+
+# Sankey Visualization 1 --------------------------------------------------
+
+graph2 <- sankeyNetwork(Links = links2, Nodes = nodes2, Source = 'origin_id',
+             Target = 'dest_id', Value = 'counts', NodeID = 'name',
+             fontSize = 12, nodeWidth = 30, units = 'migrants',sinksRight = TRUE)
+graph2
+```
+
+```{r}
+#saveNetwork(graph2, file = "final_projection.html", selfcontained = TRUE)
+```
+
+From the above graph, you can easily see that Latin America has the highest proportion of migrants with the majority travelling to North America and Europe. The second largest migrant population comes from South Asia, with the majority travelling to West Asia. North America has the largest population of immigrants, with Europe as a close second. The former Soviet Union has the lowest amount of immigrants entering the country. An additional analysis looking at rates (# of people migrating into the region divided by regions average population) may also be an interesting followup
+
+
+
+```{r}
+
+
+#Break out data for Latin America
+DATA_LA<-subset(DATA, region_orig == "Latin America")
+#DATA_LA<-subset(DATA_LA, region_orig != region_dest)
+
+#Remove Duplicates using unique ID
+#DATA_LA$ID<- paste(DATA_LA$region_orig, DATA_LA$region_dest)
+#DATA_LA<- distinct(DATA_LA,ID, .keep_all= TRUE)
+
+DATA_LA_Country<- DATA_LA[ ,c(5,15)]
+DATA_LA_Country <- aggregate(DATA_LA_Country$countryflow_2000,by=list(DATA_LA_Country$country_orig), FUN=sum)
+names(DATA_LA_Country)[names(DATA_LA_Country) == "Group.1"] <- "Country"
+names(DATA_LA_Country)[names(DATA_LA_Country) == "x"] <- "Counts"
+DATA_LA_Country<-as.data.frame(DATA_LA_Country)
+head(DATA_LA_Country)
+```
+
+```{r}
+library(ggplot2)
+
+ggplot(DATA_LA_Country,aes(x = reorder(Country, Counts, FUN=sum), y = Counts))+
+  geom_bar(stat="identity") +
+  ggtitle("Latin America Emmigrants 2000")+
+    theme_classic()+
+ # scale_fill_manual(values = getPalette(colourCount))+
+  theme(legend.position = "none", axis.title.y = element_blank() )+
+  coord_flip()
+
+```
+
+```{r}
+DATA_LA_Country_to_us2<-subset(DATA, region_orig == "Latin America" & region_dest =="North America")
+DATA_LA_Country_to_us<- DATA_LA_Country_to_us2[ ,c(5,15)]
+DATA_LA_Country_to_us <- aggregate(DATA_LA_Country_to_us$countryflow_2000,by=list(DATA_LA_Country_to_us$country_orig), FUN=sum)
+names(DATA_LA_Country_to_us)[names(DATA_LA_Country_to_us) == "Group.1"] <- "Country"
+names(DATA_LA_Country_to_us)[names(DATA_LA_Country_to_us) == "x"] <- "Counts"
+DATA_LA_Country_to_us<-as.data.frame(DATA_LA_Country_to_us)
+head(DATA_LA_Country_to_us)
+```
+```{r}
+ggplot(DATA_LA_Country_to_us,aes(x = reorder(Country, Counts, FUN=sum), y = Counts))+
+  geom_bar(stat="identity") +
+  ggtitle("Latin America Emmigrants to North America 2000")+
+    theme_classic()+
+ # scale_fill_manual(values = getPalette(colourCount))+
+  theme(legend.position = "none", axis.title.y = element_blank() )+
+  coord_flip()
+
+```
+
+```{r}
+DATA_LA_Country_to_us3<-subset(DATA_LA_Country_to_us2, country_orig != country_dest)
+
+#Remove Duplicates using unique ID
+DATA_LA_Country_to_us3$ID<- paste(DATA_LA_Country_to_us3$country_orig, DATA_LA_Country_to_us3$country_dest)
+DATA_LA_Country_to_us3<- distinct(DATA_LA_Country_to_us3,ID, .keep_all= TRUE)
+
+DATA_LA_Country_to_us3<- DATA_LA_Country_to_us3[ ,c(5,7,15)]
+names(DATA_LA_Country_to_us3)[names(DATA_LA_Country_to_us3) == "countryflow_2000"] <- "counts"
+
+head(DATA_LA_Country_to_us3)
+```
+
+```{r}
+# Adding the different labels to distinguish the nodes at time 1 and time2
+DATA_LA_Country_to_us3$country_orig<- paste(DATA_LA_Country_to_us3$country_orig, " ", sep = "")
+DATA_LA_Country_to_us3$country_dest <- paste(DATA_LA_Country_to_us3$country_dest, "_", sep = "")
+
+
+### Getting the counts for each source-target pair
+#df4 <- df_fil2 %>%
+ #   group_by(Time1, Time2) %>%
+  #  dplyr::summarize(counts = n()) %>%
+   # ungroup() %>%
+    #arrange(desc(counts))
+
+# Setting up the nodes and links for the network
+name_vec2 <- c(unique(DATA_LA_Country_to_us3$country_orig), unique(DATA_LA_Country_to_us3$country_dest ))
+
+nodes3 <- data.frame(name = name_vec2, id = 0:(length(name_vec2)-1)) #length of ids must equal number of unique locations
+
+links3 <- DATA_LA_Country_to_us3%>%
+    left_join(nodes3, by = c('country_orig' = 'name')) %>%
+    rename(origin_id = id) %>%
+    left_join(nodes3, by = c('country_dest' = 'name')) %>%
+    rename(dest_id = id)
+
+# Sankey Visualization 1 --------------------------------------------------
+
+graph3 <- sankeyNetwork(Links = links3, Nodes = nodes3, Source = 'origin_id',
+             Target = 'dest_id', Value = 'counts', NodeID = 'name',
+             fontSize = 12, nodeWidth = 30, units = 'migrants',sinksRight = TRUE)
+graph3
+```
+```{r}
+#saveNetwork(graph3, file = "final_projection2.html", selfcontained = TRUE)
+```
+
+
+
+
+As a followup analysis, I would look at the data overtime and compare the rates to see which major regions have had increased exits and entrances over time. You can potentially do this a small muliple graphs or an interactive toggle. Additionally, you could plot this against historical milestones and events to see correlations. US immigration has been a hot topic in the news recently and would serve as an interesting to topic to explore further to see how it has effected migration numbers into the US.
